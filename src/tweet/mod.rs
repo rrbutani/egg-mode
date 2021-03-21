@@ -54,16 +54,15 @@
 //! - `user_timeline`/`liked_by`
 
 use std::borrow::Cow;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::future::Future;
 use std::pin::Pin;
 use std::str::FromStr;
 use std::task::{Context, Poll};
 
-use chrono;
 use hyper::{Body, Request};
 use regex::Regex;
-use serde::{Serialize, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 use crate::common::*;
 use crate::error::{Error::InvalidResponse, Result};
@@ -74,6 +73,7 @@ mod fun;
 mod raw;
 
 pub use self::fun::*;
+pub use self::raw::RawTweetV2;
 
 round_trip! { raw::RawTweet,
     ///Represents a single status update.
@@ -303,6 +303,101 @@ impl TryFrom<raw::RawTweet> for Tweet {
             text,
             current_user_retweet,
         })
+    }
+}
+
+impl TryFrom<RawTweetV2> for Tweet {
+    type Error = error::Error;
+
+    fn try_from(raw: RawTweetV2) -> Result<Tweet> {
+        raw::RawTweet {
+            coordinates: raw.geo.map(|g| g.coordinates),
+            created_at: raw.created_at,
+            current_user_retweet: None,
+            display_text_range: None,
+            entities: {
+                let raw::v2_supporting_structs::Entities {
+                    annotations: _annotations,
+                    cashtags,
+                    hashtags,
+                    mentions: _mentions,
+                    urls,
+                } = raw.entities.ok_or(error::Error::MissingValue("entities"))?;
+
+                TweetEntities {
+                    hashtags: hashtags
+                        .into_iter()
+                        .map(|h| entities::HashtagEntity {
+                            range: (h.start as usize, h.end as usize),
+                            text: h.tag,
+                        })
+                        .collect(),
+                    symbols: cashtags
+                        .into_iter()
+                        .map(|c| entities::HashtagEntity {
+                            range: (c.start as usize, c.end as usize),
+                            text: c.tag,
+                        })
+                        .collect(),
+                    urls: urls
+                        .into_iter()
+                        .map(|u| entities::UrlEntity {
+                            display_url: u.display_url,
+                            expanded_url: Some(u.expanded_url.into_string()),
+                            range: (u.start as usize, u.end as usize),
+                            url: u.url.into_string(),
+                        })
+                        .collect(),
+                    user_mentions: vec![], // TODO! // mentions.into_iter().map(|m| entities::MentionEntity { id: m.id, }),
+                    media: None,           // TODO!
+                }
+            },
+            extended_entities: None, // todo!(),
+            extended_tweet: None,    // todo!(),
+            favorite_count: raw
+                .public_metrics
+                .as_ref()
+                .ok_or(error::Error::MissingValue("public_metrics"))?
+                .like_count
+                .try_into()
+                .unwrap(),
+            favorited: None,
+            filter_level: None, // todo!(),
+            id: raw.id,
+            in_reply_to_user_id: raw.in_reply_to_user_id,
+            in_reply_to_screen_name: None,
+            in_reply_to_status_id: None,
+            lang: raw.lang,
+            place: None,
+            possibly_sensitive: raw.possibly_sensitive,
+            quoted_status_id: None, // todo
+            quoted_status: None,    // todo
+            retweet_count: raw
+                .public_metrics
+                .ok_or(error::Error::MissingValue("public_metrics"))?
+                .retweet_count
+                .try_into()
+                .unwrap(),
+            retweeted: None,
+            retweeted_status: None,
+            source: raw.source,
+            text: Some(raw.text.clone()),
+            full_text: Some(raw.text),
+            truncated: false,
+            user: None,
+            withheld_copyright: raw
+                .withheld
+                .as_ref()
+                .ok_or(error::Error::MissingValue("withheld"))?
+                .copyright,
+            withheld_in_countries: Some(
+                raw.withheld
+                    .ok_or(error::Error::MissingValue("withheld"))?
+                    .country_codes,
+            ),
+            withheld_scope: None,
+        }
+        .try_into()
     }
 }
 
@@ -851,7 +946,7 @@ impl DraftTweet {
             )
             .add_opt_param("display_coordinates", self.display_coordinates.map_string())
             .add_opt_param("place_id", self.place_id.as_ref().map(|v| v.clone()))
-            .add_opt_param("possible_sensitive", self.possibly_sensitive.map_string());
+            .add_opt_param("possibly_sensitive", self.possibly_sensitive.map_string());
 
         if let Some(ref exclude) = self.exclude_reply_user_ids {
             let list = exclude
