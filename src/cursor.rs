@@ -158,6 +158,48 @@ impl Cursor for ListCursor {
     }
 }
 
+///TODO
+///
+///See [here](https://developer.twitter.com/en/docs/twitter-api/tweets/search/integrate/paginate).
+#[derive(Deserialize)]
+#[allow(unused)]
+pub struct SearchCursorMetadata {
+    pub(crate) newest_id: u64,
+    pub(crate) oldest_id: u64,
+    pub(crate) result_count: usize,
+    pub(crate) next_token: Option<String>,
+}
+
+///Represents a single-page view into the results returned by a call to the [Twitter API V2's search
+///endpoint][search].
+///
+///Note: this uses tokens, not `newest_id`/`oldest_id` + `since_id`/`until_id`.
+///
+///[search]: https://developer.twitter.com/en/docs/twitter-api/tweets/search/api-reference
+#[derive(Deserialize)]
+pub struct SearchCursor<SearchResultItem> {
+    pub(crate) data: Vec<SearchResultItem>,
+    pub(crate) meta: SearchCursorMetadata,
+}
+
+impl<I> Cursor for SearchCursor<I> {
+    type Item = I;
+    type Id = String;
+
+    fn previous_cursor_id(&self) -> Option<String> {
+        // We can't get previous pages with the search API.
+        None
+    }
+
+    fn next_cursor_id(&self) -> Option<String> {
+        self.meta.next_token.clone()
+    }
+
+    fn into_inner(self) -> Vec<I> {
+        self.data
+    }
+}
+
 /// Represents a paginated list of results, such as the users who follow a specific user or the
 /// lists owned by that user.
 ///
