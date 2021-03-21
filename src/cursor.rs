@@ -9,11 +9,14 @@
 //! module. The rest of it is available to make sure consumers of the API can understand precisely
 //! what types come out of functions that return `CursorIter`.
 
-use futures::Stream;
-use serde::{de::DeserializeOwned, Deserialize};
+use std::fmt::Display;
 use std::future::Future;
+use std::num::NonZeroI64;
 use std::pin::Pin;
 use std::task::{Context, Poll};
+
+use futures::Stream;
+use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::common::*;
 use crate::error::Result;
@@ -31,10 +34,27 @@ pub trait Cursor {
     ///What type is being returned by the API call?
     type Item;
 
-    ///Returns a numeric reference to the previous page of results.
-    fn previous_cursor_id(&self) -> i64;
-    ///Returns a numeric reference to the next page of results.
-    fn next_cursor_id(&self) -> i64;
+    ///The type of the id used to track pages.
+    ///
+    ///This will usually be an `i64` or a similar numeric type.
+    type Id: Display + Unpin + Send;
+
+    ///Name of the parameter used in requests to indicate how many items to return in this page.
+    ///
+    ///The default should be fine for most endpoints; this item only exists in the first place
+    ///because the Twitter V2 Search API uses a different parameter name.
+    const COUNT_PARAMETER_NAME: &'static str = "count";
+
+    ///Name of the parameter used in requests to indicate where to start the page that's returned.
+    ///
+    ///Like [`COUNT_PARAMETER_NAME`], this only exists becaue the Twitter V2 Search API has a
+    ///different name for this than the other endpoints do.
+    const STARTING_CURSOR_PARAMETER_NAME: &'static str = "cursor";
+
+    ///Returns the id for the previous page of results, if available.
+    fn previous_cursor_id(&self) -> Option<Self::Id>;
+    ///Returns the id for the next next page of results, if available.
+    fn next_cursor_id(&self) -> Option<Self::Id>;
     ///Unwraps the cursor, returning the collection of results from inside.
     fn into_inner(self) -> Vec<Self::Item>;
 }
@@ -57,13 +77,14 @@ pub struct UserCursor {
 
 impl Cursor for UserCursor {
     type Item = user::TwitterUser;
+    type Id = NonZeroI64;
 
-    fn previous_cursor_id(&self) -> i64 {
-        self.previous_cursor
+    fn previous_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.previous_cursor)
     }
 
-    fn next_cursor_id(&self) -> i64 {
-        self.next_cursor
+    fn next_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.next_cursor)
     }
 
     fn into_inner(self) -> Vec<Self::Item> {
@@ -89,13 +110,14 @@ pub struct IDCursor {
 
 impl Cursor for IDCursor {
     type Item = u64;
+    type Id = NonZeroI64;
 
-    fn previous_cursor_id(&self) -> i64 {
-        self.previous_cursor
+    fn previous_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.previous_cursor)
     }
 
-    fn next_cursor_id(&self) -> i64 {
-        self.next_cursor
+    fn next_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.next_cursor)
     }
 
     fn into_inner(self) -> Vec<Self::Item> {
@@ -121,13 +143,14 @@ pub struct ListCursor {
 
 impl Cursor for ListCursor {
     type Item = list::List;
+    type Id = NonZeroI64;
 
-    fn previous_cursor_id(&self) -> i64 {
-        self.previous_cursor
+    fn previous_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.previous_cursor)
     }
 
-    fn next_cursor_id(&self) -> i64 {
-        self.next_cursor
+    fn next_cursor_id(&self) -> Option<NonZeroI64> {
+        NonZeroI64::new(self.next_cursor)
     }
 
     fn into_inner(self) -> Vec<Self::Item> {
@@ -206,7 +229,7 @@ impl Cursor for ListCursor {
 /// page forward and backward as needed:
 ///
 /// ```rust,no_run
-/// # use egg_mode::Token;
+/// # use egg_mode::{Token, cursor::Cursor};
 /// # #[tokio::main]
 /// # async fn main() {
 /// # let token: Token = unimplemented!();
@@ -217,7 +240,7 @@ impl Cursor for ListCursor {
 ///     println!("{} (@{})", user.name, user.screen_name);
 /// }
 ///
-/// list.next_cursor = resp.response.next_cursor;
+/// list.next_cursor = resp.response.next_cursor_id();
 /// let resp = list.call().await.unwrap();
 ///
 /// for user in resp.response.users {
@@ -239,20 +262,21 @@ where
     ///some calls don't allow you to set the size of the pages at all. Refer to the individual
     ///methods' documentation for specifics.
     pub page_size: Option<i32>,
-    ///Numeric reference to the previous page of results. A value of zero indicates that the
-    ///current page of results is the first page of the cursor.
+    ///Id for the previous page of results. A value of [`None`] indicates that the current page of
+    ///results is the first page of the cursor or that the given [`Cursor`] implementation does not
+    ///return previous cursor ids.
     ///
     ///This value is intended to be automatically set and used as part of this struct's Iterator
     ///implementation. It is made available for those who wish to manually manage network calls and
     ///pagination.
-    pub previous_cursor: i64,
-    ///Numeric reference to the next page of results. A value of zero indicates that the current
+    pub previous_cursor: Option<T::Id>,
+    ///Numeric reference to the next page of results. A value of [`None`] indicates that the current
     ///page of results is the last page of the cursor.
     ///
     ///This value is intended to be automatically set and used as part of this struct's Iterator
     ///implementation. It is made available for those who wish to manually manage network calls and
     ///pagination.
-    pub next_cursor: i64,
+    pub next_cursor: Option<T::Id>,
     loader: Option<FutureResponse<T>>,
     iter: Option<Box<dyn Iterator<Item = Response<T::Item>> + Send>>,
 }
@@ -273,8 +297,8 @@ where
         if self.page_size.is_some() {
             CursorIter {
                 page_size: Some(page_size),
-                previous_cursor: -1,
-                next_cursor: -1,
+                previous_cursor: None,
+                next_cursor: None,
                 loader: None,
                 iter: None,
                 ..self
@@ -289,9 +313,9 @@ where
     ///This is intended to be used as part of this struct's Iterator implementation. It is provided
     ///as a convenience for those who wish to manage network calls and pagination manually.
     pub fn call(&self) -> impl Future<Output = Result<Response<T>>> {
-        let params = ParamList::from(self.params_base.as_ref().cloned().unwrap_or_default())
-            .add_param("cursor", self.next_cursor.to_string())
-            .add_opt_param("count", self.page_size.map_string());
+        let params = self.params_base.as_ref().cloned().unwrap_or_default()
+            .add_opt_param(T::STARTING_CURSOR_PARAMETER_NAME, self.next_cursor.map_string())
+            .add_opt_param(T::COUNT_PARAMETER_NAME, self.page_size.map_string());
 
         let req = get(self.link, &self.token, Some(&params));
         request_with_json_response(req)
@@ -308,12 +332,12 @@ where
         page_size: Option<i32>,
     ) -> CursorIter<T> {
         CursorIter {
-            link: link,
+            link,
             token: token.clone(),
-            params_base: params_base,
-            page_size: page_size,
-            previous_cursor: -1,
-            next_cursor: -1,
+            params_base,
+            page_size,
+            previous_cursor: None,
+            next_cursor: None,
             loader: None,
             iter: None,
         }
@@ -360,7 +384,7 @@ where
         if let Some(ref mut results) = self.iter {
             if let Some(item) = results.next() {
                 return Poll::Ready(Some(Ok(item)));
-            } else if self.next_cursor == 0 {
+            } else if self.next_cursor.is_none() {
                 return Poll::Ready(None);
             }
         }
