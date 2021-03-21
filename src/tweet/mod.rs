@@ -368,7 +368,15 @@ impl TryFrom<RawTweetV2> for Tweet {
             id: raw.id,
             in_reply_to_user_id: raw.in_reply_to_user_id,
             in_reply_to_screen_name: None,
-            in_reply_to_status_id: None,
+            in_reply_to_status_id: raw.referenced_tweets.and_then(|v| {
+                for r in v {
+                    if let raw::v2_supporting_structs::ReferencedTweet::RepliedTo { id } = r {
+                        return Some(id);
+                    }
+                }
+
+                None
+            }),
             lang: raw.lang,
             place: None,
             possibly_sensitive: raw.possibly_sensitive,

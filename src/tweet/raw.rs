@@ -55,8 +55,9 @@ pub(crate) struct RawTweet {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawTweetV2 {
     // Always present.
+    /// Id of this tweet.
     #[serde(default, deserialize_with = "deserialize_number_from_string")]
-    pub(crate) id: u64,
+    pub id: u64,
     // Always present.
     /// Text body of the tweet.
     pub text: String,
@@ -79,7 +80,8 @@ pub struct RawTweetV2 {
     pub(crate) possibly_sensitive: Option<bool>,
     pub(crate) promoted_metrics: Option<v2_supporting_structs::Metrics>,
     pub(crate) public_metrics: Option<v2_supporting_structs::PublicMetrics>,
-    pub(crate) referenced_tweets: Option<Vec<v2_supporting_structs::ReferencedTweet>>,
+    /// Referenced Tweets.
+    pub referenced_tweets: Option<Vec<v2_supporting_structs::ReferencedTweet>>,
     pub(crate) reply_settings: Option<v2_supporting_structs::ReplySettings>,
     pub(crate) source: Option<String>,
     pub(crate) withheld: Option<v2_supporting_structs::WithheldDetails>,
@@ -99,6 +101,7 @@ impl RawTweetV2 {
         lang,\
         possibly_sensitive,\
         public_metrics,\
+        referenced_tweets,\
         source,\
         withheld"
     }
