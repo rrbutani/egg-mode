@@ -311,7 +311,7 @@ impl TryFrom<RawTweetV2> for Tweet {
 
     fn try_from(raw: RawTweetV2) -> Result<Tweet> {
         raw::RawTweet {
-            coordinates: raw.geo.map(|g| g.coordinates),
+            coordinates: raw.geo.and_then(|g| g.coordinates),
             created_at: raw
                 .created_at
                 .ok_or(error::Error::MissingValue("created_at"))?,

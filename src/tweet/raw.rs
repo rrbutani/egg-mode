@@ -222,8 +222,8 @@ pub(crate) mod v2_supporting_structs {
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Geo {
-        pub(crate) coordinates: RawCoordinates,
-        pub(crate) place_id: String,
+        pub(crate) coordinates: Option<RawCoordinates>,
+        pub(crate) place_id: Option<String>,
     }
 
     #[derive(Debug, Clone, Deserialize)]
