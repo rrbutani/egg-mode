@@ -102,6 +102,30 @@ impl RawTweetV2 {
         source,\
         withheld"
     }
+
+    /// All the fields.
+    pub const fn all_fields() -> &'static str {
+        "\
+        attachments,\
+        author_id,\
+        context_annotations,\
+        conversation_id,\
+        created_at,\
+        entities,\
+        geo,\
+        in_reply_to_user_id,\
+        lang,\
+        non_public_metrics,\
+        organic_metrics,\
+        possibly_sensitive,\
+        promoted_metrics,\
+        public_metrics,\
+        referenced_tweets,\
+        reply_settings,\
+        source,\
+        withheld
+        "
+    }
 }
 /// Everything in this module comes from [here].
 ///

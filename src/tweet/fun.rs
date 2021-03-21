@@ -3,12 +3,13 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::collections::HashMap;
+use std::convert::{TryFrom, TryInto};
+use std::ops::{Deref, DerefMut};
 
 use crate::common::*;
 use crate::error::{Error::InvalidResponse, Result};
 use crate::user::UserID;
 use crate::{auth, cursor, links};
-use serde_json;
 
 use super::*;
 
@@ -251,4 +252,51 @@ pub async fn delete(id: u64, token: &auth::Token) -> Result<Response<Tweet>> {
     let url = format!("{}/{}.json", links::statuses::DELETE_STEM, id);
     let req = post(&url, token, Some(&params));
     request_with_json_response(req).await
+}
+
+/// Wrapper for [`Tweet`].
+///
+/// Exists to paper over differences in the V2 API.
+#[derive(Debug, Deserialize)]
+#[serde(try_from = "RawTweetV2")]
+pub struct TweetWrapper(Tweet);
+
+impl Deref for TweetWrapper {
+    type Target = Tweet;
+    fn deref(&self) -> &Tweet { &self.0 }
+}
+
+impl DerefMut for TweetWrapper {
+    fn deref_mut(&mut self) -> &mut Tweet { &mut self.0 }
+}
+
+impl TryFrom<RawTweetV2> for TweetWrapper {
+    type Error = error::Error;
+    fn try_from(raw: RawTweetV2) -> Result<Self> {
+        Ok(Self(raw.try_into()?))
+    }
+}
+
+///All the children of a particular tweet (replies), recursively.
+pub async fn all_children(
+    root_tweet_id: u64,
+    token: &auth::Token,
+) -> cursor::CursorIter<cursor::SearchCursor<TweetWrapper>> {
+    let params = ParamList::new()
+        .add_param("query", format!("conversation_id:{}", root_tweet_id))
+        .add_param("tweet.fields", RawTweetV2::fields_needed_for_v1_raw_tweet());
+
+    cursor::CursorIter::new(links::v2::search::RECENT, token, Some(params), Some(100))
+}
+
+///All the children of a particular tweet (replies), recursively.
+pub async fn all_children_raw(
+    root_tweet_id: u64,
+    token: &auth::Token,
+) -> cursor::CursorIter<cursor::SearchCursor<RawTweetV2>> {
+    let params = ParamList::new()
+        .add_param("query", format!("conversation_id:{}", root_tweet_id))
+        .add_param("tweet.fields", RawTweetV2::all_fields());
+
+    cursor::CursorIter::new(links::v2::search::RECENT, token, Some(params), Some(100))
 }

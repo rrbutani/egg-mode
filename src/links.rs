@@ -128,3 +128,13 @@ pub mod stream {
     pub const SAMPLE: &'static str = "https://stream.twitter.com/1.1/statuses/sample.json";
     pub const FILTER: &'static str = "https://stream.twitter.com/1.1/statuses/filter.json";
 }
+
+pub mod v2 {
+    pub mod search {
+        pub const RECENT: &'static str = "https://api.twitter.com/2/tweets/search/recent";
+
+        /// Only available on the Academic Research product track.
+        #[allow(unused)]
+        pub const ALL: &'static str = "https://api.twitter.com/2/tweets/search/all";
+    }
+}
