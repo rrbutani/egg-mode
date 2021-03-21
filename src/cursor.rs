@@ -19,6 +19,7 @@ use futures::Stream;
 use serde::{de::DeserializeOwned, Deserialize};
 
 use crate::common::*;
+use crate::common::serde_num_string::*;
 use crate::error::Result;
 use crate::{auth, list, user};
 
@@ -164,7 +165,9 @@ impl Cursor for ListCursor {
 #[derive(Deserialize)]
 #[allow(unused)]
 pub struct SearchCursorMetadata {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub(crate) newest_id: u64,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub(crate) oldest_id: u64,
     pub(crate) result_count: usize,
     pub(crate) next_token: Option<String>,
@@ -185,6 +188,9 @@ pub struct SearchCursor<SearchResultItem> {
 impl<I> Cursor for SearchCursor<I> {
     type Item = I;
     type Id = String;
+
+    const COUNT_PARAMETER_NAME: &'static str = "max_results";
+    const STARTING_CURSOR_PARAMETER_NAME: &'static str = "next_token";
 
     fn previous_cursor_id(&self) -> Option<String> {
         // We can't get previous pages with the search API.

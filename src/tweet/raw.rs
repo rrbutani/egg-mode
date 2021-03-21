@@ -1,10 +1,9 @@
 use crate::{place, user};
-use chrono;
 use serde::Deserialize;
 use url::Url;
 
 use crate::common::serde_datetime;
-
+use crate::common::serde_num_string::*;
 use super::{
     deserialize_tweet_source, ExtendedTweetEntities, FilterLevel, Tweet,
     TweetEntities, TweetSource,
@@ -56,18 +55,23 @@ pub(crate) struct RawTweet {
 #[derive(Debug, Clone, Deserialize)]
 pub struct RawTweetV2 {
     // Always present.
+    #[serde(default, deserialize_with = "deserialize_number_from_string")]
     pub(crate) id: u64,
     // Always present.
-    pub(crate) text: String,
+    /// Text body of the tweet.
+    pub text: String,
 
     pub(crate) attachments: Option<v2_supporting_structs::Attachments>,
-    pub(crate) author_id: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
+    /// Id of the author.
+    pub author_id: Option<u64>,
     pub(crate) context_annotations: Option<Vec<v2_supporting_structs::ContextAnnotation>>,
+    #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
     pub(crate) conversation_id: Option<u64>,
-    #[serde(with = "serde_datetime")]
-    pub(crate) created_at: chrono::DateTime<chrono::Utc>, // TODO: this too should be optional.
+    pub(crate) created_at: Option<chrono::DateTime<chrono::Utc>>, // TODO: this too should be optional.
     pub(crate) entities: Option<v2_supporting_structs::Entities>,
     pub(crate) geo: Option<v2_supporting_structs::Geo>,
+    #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
     pub(crate) in_reply_to_user_id: Option<u64>,
     pub(crate) lang: Option<String>,
     pub(crate) non_public_metrics: Option<v2_supporting_structs::NonPublicMetrics>,
@@ -77,8 +81,8 @@ pub struct RawTweetV2 {
     pub(crate) public_metrics: Option<v2_supporting_structs::PublicMetrics>,
     pub(crate) referenced_tweets: Option<Vec<v2_supporting_structs::ReferencedTweet>>,
     pub(crate) reply_settings: Option<v2_supporting_structs::ReplySettings>,
-    pub(crate) source: Option<TweetSource>,
-    pub(crate) withheld: Option<v2_supporting_structs::WitheldDetails>,
+    pub(crate) source: Option<String>,
+    pub(crate) withheld: Option<v2_supporting_structs::WithheldDetails>,
 }
 
 impl RawTweetV2 {
@@ -103,7 +107,7 @@ impl RawTweetV2 {
 ///
 /// [here]: https://developer.twitter.com/en/docs/twitter-api/data-dictionary/object-model/tweet
 pub(crate) mod v2_supporting_structs {
-    use super::{Deserialize, RawCoordinates, Url};
+    use super::{Deserialize, RawCoordinates, Url, deserialize_number_from_string};
 
     #[derive(Debug, Clone, Deserialize)]
     pub enum Attachments {
@@ -121,6 +125,7 @@ pub(crate) mod v2_supporting_structs {
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct ContextAnnotationDomain {
+        #[serde(deserialize_with = "deserialize_number_from_string")]
         pub(crate) id: u64,
         pub(crate) name: String,
         pub(crate) description: String,
@@ -128,23 +133,29 @@ pub(crate) mod v2_supporting_structs {
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct ContextAnnotationEntity {
+        #[serde(deserialize_with = "deserialize_number_from_string")]
         pub(crate) id: u64,
         pub(crate) name: String,
     }
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Entities {
+        #[serde(default)]
         pub(crate) annotations: Vec<Annotation>,
+        #[serde(default)]
         pub(crate) cashtags: Vec<Cashtag>,
+        #[serde(default)]
         pub(crate) hashtags: Vec<Hashtag>,
+        #[serde(default)]
         pub(crate) mentions: Vec<Mention>,
+        #[serde(default)]
         pub(crate) urls: Vec<UrlEntity>,
     }
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Annotation {
-        pub(crate) start: u8,
-        pub(crate) end: u8,
+        pub(crate) start: usize,
+        pub(crate) end: usize,
         pub(crate) probability: f32,
         pub(crate) r#type: String,
         pub(crate) normalized_text: String,
@@ -152,36 +163,36 @@ pub(crate) mod v2_supporting_structs {
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Cashtag {
-        pub(crate) start: u8,
-        pub(crate) end: u8,
+        pub(crate) start: usize,
+        pub(crate) end: usize,
         pub(crate) tag: String,
     }
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Hashtag {
-        pub(crate) start: u8,
-        pub(crate) end: u8,
+        pub(crate) start: usize,
+        pub(crate) end: usize,
         pub(crate) tag: String,
     }
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct Mention {
-        pub(crate) start: u8,
-        pub(crate) end: u8,
-        pub(crate) tag: String,
+        pub(crate) start: usize,
+        pub(crate) end: usize,
+        pub(crate) username: String,
     }
 
     #[derive(Debug, Clone, Deserialize)]
     pub struct UrlEntity {
-        pub(crate) start: u8,
-        pub(crate) end: u8,
+        pub(crate) start: usize,
+        pub(crate) end: usize,
         pub(crate) url: Url,
         pub(crate) expanded_url: Url,
         pub(crate) display_url: String,
-        pub(crate) status: u16,
-        pub(crate) titel: String,
+        pub(crate) status: Option<u16>,
+        pub(crate) title: Option<String>,
         pub(crate) description: Option<String>,
-        pub(crate) unwound_url: Url,
+        pub(crate) unwound_url: Option<Url>,
     }
 
     #[derive(Debug, Clone, Deserialize)]
@@ -218,8 +229,14 @@ pub(crate) mod v2_supporting_structs {
     #[derive(Debug, Clone, Deserialize)]
     #[serde(tag = "type", rename_all = "snake_case")]
     pub enum ReferencedTweet {
-        RepliedTo { id: u64 },
-        Quoted { id: u64 },
+        RepliedTo {
+            #[serde(deserialize_with = "deserialize_number_from_string")]
+            id: u64,
+        },
+        Quoted {
+            #[serde(deserialize_with = "deserialize_number_from_string")]
+            id: u64,
+        },
     }
 
     #[derive(Debug, Clone, Deserialize)]
@@ -231,7 +248,7 @@ pub(crate) mod v2_supporting_structs {
     }
 
     #[derive(Debug, Clone, Deserialize)]
-    pub struct WitheldDetails {
+    pub struct WithheldDetails {
         pub(crate) copyright: bool,
         pub(crate) country_codes: Vec<String>,
     }

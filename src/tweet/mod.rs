@@ -312,7 +312,9 @@ impl TryFrom<RawTweetV2> for Tweet {
     fn try_from(raw: RawTweetV2) -> Result<Tweet> {
         raw::RawTweet {
             coordinates: raw.geo.map(|g| g.coordinates),
-            created_at: raw.created_at,
+            created_at: raw
+                .created_at
+                .ok_or(error::Error::MissingValue("created_at"))?,
             current_user_retweet: None,
             display_text_range: None,
             entities: {
@@ -380,21 +382,13 @@ impl TryFrom<RawTweetV2> for Tweet {
                 .unwrap(),
             retweeted: None,
             retweeted_status: None,
-            source: raw.source,
+            source: None,
             text: Some(raw.text.clone()),
             full_text: Some(raw.text),
             truncated: false,
             user: None,
-            withheld_copyright: raw
-                .withheld
-                .as_ref()
-                .ok_or(error::Error::MissingValue("withheld"))?
-                .copyright,
-            withheld_in_countries: Some(
-                raw.withheld
-                    .ok_or(error::Error::MissingValue("withheld"))?
-                    .country_codes,
-            ),
+            withheld_copyright: raw.withheld.as_ref().map(|w| w.copyright).unwrap_or(false),
+            withheld_in_countries: raw.withheld.map(|w| w.country_codes),
             withheld_scope: None,
         }
         .try_into()

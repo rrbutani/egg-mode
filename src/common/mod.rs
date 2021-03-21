@@ -535,6 +535,50 @@ pub mod serde_via_string {
     }
 }
 
+pub mod serde_num_string {
+    use std::{fmt::Display, str::FromStr};
+
+    use serde::{Deserialize, Deserializer};
+
+    pub fn deserialize_number_from_string<'de, T, D>(de: D) -> Result<T, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: FromStr + Deserialize<'de>,
+        <T as FromStr>::Err: Display,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Extractor<T> {
+            Str(String),
+            Num(T),
+        }
+
+        match Extractor::<T>::deserialize(de)? {
+            Extractor::Str(s) => s.parse::<T>().map_err(serde::de::Error::custom),
+            Extractor::Num(n) => Ok(n),
+        }
+    }
+
+    pub fn deserialize_number_from_opt_string<'de, T, D>(de: D) -> Result<Option<T>, D::Error>
+    where
+        D: Deserializer<'de>,
+        T: FromStr + Deserialize<'de>,
+        <T as FromStr>::Err: Display,
+    {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Extractor<T> {
+            Str(Option<String>),
+            Num(T),
+        }
+
+        match Extractor::<T>::deserialize(de)? {
+            Extractor::Str(s) => s.map(|s| s.parse::<T>().map_err(serde::de::Error::custom)).transpose(),
+            Extractor::Num(n) => Ok(Some(n)),
+        }
+    }
+}
+
 /// Percent-encodes the given string based on the Twitter API specification.
 ///
 /// Twitter bases its encoding scheme on RFC 3986, Section 2.1. They describe the process in full
