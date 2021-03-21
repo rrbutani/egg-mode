@@ -104,6 +104,8 @@ impl RawTweetV2 {
     }
 
     /// All the fields.
+    ///
+    /// (save for some that require special permissions)
     pub const fn all_fields() -> &'static str {
         "\
         attachments,\
@@ -115,16 +117,12 @@ impl RawTweetV2 {
         geo,\
         in_reply_to_user_id,\
         lang,\
-        non_public_metrics,\
-        organic_metrics,\
         possibly_sensitive,\
-        promoted_metrics,\
         public_metrics,\
         referenced_tweets,\
         reply_settings,\
         source,\
-        withheld
-        "
+        withheld"
     }
 }
 /// Everything in this module comes from [here].
