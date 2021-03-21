@@ -318,40 +318,50 @@ impl TryFrom<RawTweetV2> for Tweet {
             current_user_retweet: None,
             display_text_range: None,
             entities: {
-                let raw::v2_supporting_structs::Entities {
-                    annotations: _annotations,
-                    cashtags,
-                    hashtags,
-                    mentions: _mentions,
-                    urls,
-                } = raw.entities.ok_or(error::Error::MissingValue("entities"))?;
+                if let None = raw.entities {
+                    TweetEntities {
+                        hashtags: vec![],
+                        symbols: vec![],
+                        urls: vec![],
+                        user_mentions: vec![],
+                        media: None,
+                    }
+                } else {
+                    let raw::v2_supporting_structs::Entities {
+                        annotations: _annotations,
+                        cashtags,
+                        hashtags,
+                        mentions: _mentions,
+                        urls,
+                    } = raw.entities.unwrap();
 
-                TweetEntities {
-                    hashtags: hashtags
-                        .into_iter()
-                        .map(|h| entities::HashtagEntity {
-                            range: (h.start as usize, h.end as usize),
-                            text: h.tag,
-                        })
-                        .collect(),
-                    symbols: cashtags
-                        .into_iter()
-                        .map(|c| entities::HashtagEntity {
-                            range: (c.start as usize, c.end as usize),
-                            text: c.tag,
-                        })
-                        .collect(),
-                    urls: urls
-                        .into_iter()
-                        .map(|u| entities::UrlEntity {
-                            display_url: u.display_url,
-                            expanded_url: Some(u.expanded_url.into_string()),
-                            range: (u.start as usize, u.end as usize),
-                            url: u.url.into_string(),
-                        })
-                        .collect(),
-                    user_mentions: vec![], // TODO! // mentions.into_iter().map(|m| entities::MentionEntity { id: m.id, }),
-                    media: None,           // TODO!
+                    TweetEntities {
+                        hashtags: hashtags
+                            .into_iter()
+                            .map(|h| entities::HashtagEntity {
+                                range: (h.start as usize, h.end as usize),
+                                text: h.tag,
+                            })
+                            .collect(),
+                        symbols: cashtags
+                            .into_iter()
+                            .map(|c| entities::HashtagEntity {
+                                range: (c.start as usize, c.end as usize),
+                                text: c.tag,
+                            })
+                            .collect(),
+                        urls: urls
+                            .into_iter()
+                            .map(|u| entities::UrlEntity {
+                                display_url: u.display_url,
+                                expanded_url: Some(u.expanded_url.into_string()),
+                                range: (u.start as usize, u.end as usize),
+                                url: u.url.into_string(),
+                            })
+                            .collect(),
+                        user_mentions: vec![], // TODO! // mentions.into_iter().map(|m| entities::MentionEntity { id: m.id, }),
+                        media: None,           // TODO!
+                    }
                 }
             },
             extended_entities: None, // todo!(),
