@@ -62,29 +62,29 @@ pub struct RawTweetV2 {
     /// Text body of the tweet.
     pub text: String,
 
-    pub(crate) attachments: Option<v2_supporting_structs::Attachments>,
+    pub attachments: Option<v2_supporting_structs::Attachments>,
     #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
     /// Id of the author.
     pub author_id: Option<u64>,
-    pub(crate) context_annotations: Option<Vec<v2_supporting_structs::ContextAnnotation>>,
+    pub context_annotations: Option<Vec<v2_supporting_structs::ContextAnnotation>>,
     #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
-    pub(crate) conversation_id: Option<u64>,
-    pub(crate) created_at: Option<chrono::DateTime<chrono::Utc>>, // TODO: this too should be optional.
-    pub(crate) entities: Option<v2_supporting_structs::Entities>,
-    pub(crate) geo: Option<v2_supporting_structs::Geo>,
+    pub conversation_id: Option<u64>,
+    pub created_at: Option<chrono::DateTime<chrono::Utc>>, // TODO: this too should be optional.
+    pub entities: Option<v2_supporting_structs::Entities>,
+    pub geo: Option<v2_supporting_structs::Geo>,
     #[serde(default, deserialize_with = "deserialize_number_from_opt_string")]
-    pub(crate) in_reply_to_user_id: Option<u64>,
-    pub(crate) lang: Option<String>,
-    pub(crate) non_public_metrics: Option<v2_supporting_structs::NonPublicMetrics>,
-    pub(crate) organic_metrics: Option<v2_supporting_structs::Metrics>,
-    pub(crate) possibly_sensitive: Option<bool>,
-    pub(crate) promoted_metrics: Option<v2_supporting_structs::Metrics>,
-    pub(crate) public_metrics: Option<v2_supporting_structs::PublicMetrics>,
+    pub in_reply_to_user_id: Option<u64>,
+    pub lang: Option<String>,
+    pub non_public_metrics: Option<v2_supporting_structs::NonPublicMetrics>,
+    pub organic_metrics: Option<v2_supporting_structs::Metrics>,
+    pub possibly_sensitive: Option<bool>,
+    pub promoted_metrics: Option<v2_supporting_structs::Metrics>,
+    pub public_metrics: Option<v2_supporting_structs::PublicMetrics>,
     /// Referenced Tweets.
     pub referenced_tweets: Option<Vec<v2_supporting_structs::ReferencedTweet>>,
-    pub(crate) reply_settings: Option<v2_supporting_structs::ReplySettings>,
-    pub(crate) source: Option<String>,
-    pub(crate) withheld: Option<v2_supporting_structs::WithheldDetails>,
+    pub reply_settings: Option<v2_supporting_structs::ReplySettings>,
+    pub source: Option<String>,
+    pub withheld: Option<v2_supporting_structs::WithheldDetails>,
 }
 
 impl RawTweetV2 {
